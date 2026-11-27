@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Kasir Minimarket</title>
+<style>
+:root{--blue:#205bb5;--navy:#153b75;--bg:#f4f7fb;--line:#e3e9f2;--muted:#697586;--green:#16845b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font:15px Arial,sans-serif;color:#182230}
+header{background:linear-gradient(120deg,var(--navy),#3479d6);color:white;padding:26px max(20px,calc((100% - 1150px)/2))}
+h1{margin:0 0 8px;font-size:clamp(22px,3vw,30px)}
+header p{margin:0;opacity:.9}
+main{max-width:1150px;margin:24px auto;padding:0 18px 40px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.card,.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 4px 16px #12345a08}
+.card small{display:block;color:var(--muted);margin-bottom:10px}
+.card strong{font-size:25px}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+h2{font-size:18px;margin:0 0 16px}
+label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}
+input,select{width:100%;padding:11px;border:1px solid #d5ddea;border-radius:8px;background:white;font-size:14px}
+button{border:0;border-radius:8px;padding:10px 13px;background:var(--blue);color:white;font-weight:bold;cursor:pointer}
+button:hover{filter:brightness(.96)}
+.full{width:100%;margin-top:15px}
+.tools{display:flex;gap:9px;margin-bottom:12px}
+.tools input{flex:1;min-width:0}
+.light{background:#eaf0fb;color:#214e92}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:590px;font-size:13px}
+th,td{text-align:left;padding:12px 9px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);background:#fafbfd}
+td:last-child,th:last-child{text-align:right}
+.delete{background:#fff0f0;color:#b42318;padding:7px 9px}
+.empty{text-align:center;color:var(--muted);padding:24px}
+.note{font-size:12px;color:var(--muted);line-height:1.5}
+.pricebox{margin-top:12px;padding:12px;border-radius:9px;background:#f1f6ff;color:#214e92;font-size:13px}
+.pricebox strong{display:block;font-size:20px;margin-top:5px}
+@media(max-width:760px){.stats,.layout{grid-template-columns:1fr}header{padding:22px 18px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Dashboard Kasir Minimarket</h1>
+  <p>Sistem pencatatan transaksi dan pendapatan minimarket</p>
+</header>
+<main>
+  <section class="stats">
+    <div class="card"><small>Total Transaksi</small><strong id="count">0</strong></div>
+    <div class="card"><small>Total Barang Terjual</small><strong id="units">0</strong></div>
+    <div class="card"><small>Total Pendapatan</small><strong id="income">Rp0</strong></div>
+  </section>
+
+  <section class="layout">
+    <div class="panel">
+      <h2>Input Transaksi</h2>
+      <form id="form">
+        <label for="date">Tanggal</label>
+        <input id="date" type="date" required>
+        <label for="cashier">Nama Kasir</label>
+        <input id="cashier" type="text" placeholder="Masukkan nama kasir" required>
+        <label for="product">Nama Barang</label>
+        <select id="product" required>
+          <option value="">Pilih barang</option>
+          <option value="Beras 5 kg" data-price="75000">Beras 5 kg</option>
+          <option value="Minyak Goreng 1 L" data-price="18000">Minyak Goreng 1 L</option>
+          <option value="Gula Pasir 1 kg" data-price="17000">Gula Pasir 1 kg</option>
+          <option value="Mi Instan" data-price="3500">Mi Instan</option>
+          <option value="Air Mineral" data-price="5000">Air Mineral</option>
+          <option value="Sabun Mandi" data-price="6000">Sabun Mandi</option>
+          <option value="Produk lainnya" data-price="">Produk lainnya</option>
+        </select>
+        <label for="price">Harga Satuan (Rp)</label>
+        <input id="price" type="number" min="1" placeholder="Harga barang" required>
+        <label for="qty">Jumlah Barang</label>
+        <input id="qty" type="number" min="1" step="1" placeholder="Contoh: 2" required>
+        <div class="pricebox">Total pembayaran<strong id="preview">Rp0</strong></div>
+        <button class="full" type="submit">Tambah Transaksi</button>
+      </form>
+      <p class="note">Contoh harga barang dapat diubah sesuai harga minimarket. Data tersimpan di browser perangkat ini dan belum tersinkron ke perangkat lain.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Riwayat Transaksi</h2>
+      <div class="tools">
+        <input id="search" type="search" placeholder="Cari nama barang atau kasir...">
+        <button id="reset" class="light" type="button">Reset</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Tanggal</th><th>Kasir</th><th>Barang</th><th>Jumlah</th><th>Total</th><th>Aksi</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+<script>
+const KEY="dashboardKasirMinimarket_v1";
+let transactions=[];
+try{transactions=JSON.parse(localStorage.getItem(KEY)||"[]");if(!Array.isArray(transactions))transactions=[]}catch(e){transactions=[]}
+const $=id=>document.getElementById(id);
+const rupiah=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function save(){try{localStorage.setItem(KEY,JSON.stringify(transactions))}catch(e){alert("Browser tidak dapat menyimpan data.")}render()}
+function updatePreview(){
+  const qty=Number($("qty").value)||0,price=Number($("price").value)||0;
+  $("preview").textContent=rupiah(qty*price);
+}
+function render(){
+  $("count").textContent=transactions.length;
+  $("units").textContent=transactions.reduce((n,t)=>n+t.qty,0);
+  $("income").textContent=rupiah(transactions.reduce((n,t)=>n+t.qty*t.price,0));
+  const q=$("search").value.trim().toLowerCase();
+  const list=transactions.filter(t=>t.product.toLowerCase().includes(q)||t.cashier.toLowerCase().includes(q));
+  $("rows").innerHTML=list.length?list.map(t=>`<tr>
+    <td>${esc(t.date)}</td><td>${esc(t.cashier)}</td><td>${esc(t.product)}</td>
+    <td>${t.qty}</td><td>${rupiah(t.qty*t.price)}</td>
+    <td><button class="delete" type="button" onclick="removeTransaction('${t.id}')">Hapus</button></td>
+  </tr>`).join(""):'<tr><td colspan="6" class="empty">Tidak ada transaksi yang cocok.</td></tr>';
+}
+function removeTransaction(id){
+  if(confirm("Hapus transaksi ini?")){transactions=transactions.filter(t=>t.id!==id);save()}
+}
+$("product").addEventListener("change",()=>{
+  const option=$("product").selectedOptions[0];
+  if(option&&option.dataset.price)$("price").value=option.dataset.price;
+  updatePreview();
+});
+$("qty").addEventListener("input",updatePreview);
+$("price").addEventListener("input",updatePreview);
+$("form").addEventListener("submit",e=>{
+  e.preventDefault();
+  const date=$("date").value,cashier=$("cashier").value.trim(),product=$("product").value;
+  const qty=Number($("qty").value),price=Number($("price").value);
+  if(!date||!cashier||!product||!Number.isInteger(qty)||qty<1||!Number.isFinite(price)||price<1){
+    alert("Periksa kembali data transaksi.");return;
+  }
+  transactions.unshift({id:Date.now().toString(),date,cashier,product,qty,price});
+  save();e.target.reset();$("date").value=new Date().toLocaleDateString("en-CA");$("preview").textContent=rupiah(0);
+});
+$("search").addEventListener("input",render);
+$("reset").addEventListener("click",()=>{
+  if(confirm("Hapus semua riwayat transaksi?")){transactions=[];save()}
+});
+$("date").value=new Date().toLocaleDateString("en-CA");
+render();updatePreview();
+</script>
+</body>
+</html>
